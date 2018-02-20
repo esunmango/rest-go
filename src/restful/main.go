@@ -1,15 +1,16 @@
 package main
 
 import(
-	//"encoding/json"
 	"log"
 	"net/http"
 	"math/rand"
 	"strconv"
 	"github.com/gorilla/mux"
-	//"fmt"
+	_ "github.com/denisenkom/go-mssqldb"
 	"encoding/json"
-	"io/ioutil"
+	//"io/ioutil"
+	"database/sql"
+	"fmt"
 )
 
 // Book Struct (Model)
@@ -89,6 +90,53 @@ func deleteBook(w http.ResponseWriter,r *http.Request){
 	json.NewEncoder(w).Encode(books)
 }
 
+
+
+func test(w http.ResponseWriter, r *http.Request){
+
+	condb, errdb := sql.Open("mssql", "server=SQL03\\DB03;user id=sa;password=avanceytec;database=AXTEST;")
+	if errdb != nil {
+		fmt.Println(" Error open db:", errdb.Error())
+	}
+	//
+
+	rows, err := condb.Query("SELECT TOP 1 ct.*,dp.NAME FROM CustTable ct left join DIRPARTYTABLE dp on ct.PARTY = dp.RECID")
+	if err != nil {
+		log.Fatal(err)
+	}
+	columns, _ := rows.Columns()
+	count := len(columns)
+	values := make([]interface{}, count)
+	valuePtrs := make([]interface{}, count)
+
+	for rows.Next() {
+
+		for i, _ := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		rows.Scan(valuePtrs...)
+
+		for i, col := range columns {
+
+			var v interface{}
+
+			val := values[i]
+
+			b, ok := val.([]byte)
+
+			if (ok) {
+				v = string(b)
+			} else {
+				v = val
+			}
+
+			fmt.Println(col, v)
+		}
+	}
+	json.NewEncoder(w).Encode(values)
+}
+
 func main(){
 	//Init Router
 	r := mux.NewRouter()
@@ -103,6 +151,8 @@ func main(){
 	r.HandleFunc("/api/books",createBook).Methods("POST")
 	r.HandleFunc("/api/books/{id}",updateBook).Methods("PUT")
 	r.HandleFunc("/api/books/{id}",deleteBook).Methods("DELETE")
+
+	r.HandleFunc("/api/test",test).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":9797",r))
 }
